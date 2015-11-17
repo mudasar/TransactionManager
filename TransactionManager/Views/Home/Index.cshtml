@@ -1,0 +1,254 @@
+﻿@{
+    ViewBag.Title = "Home Page";
+}
+
+<div class="row">
+    <div class="col-lg-12">
+        <h1>Manage Transactions</h1>
+        <p>View Already loaded transactions in database. Edit/Delete or to upload new batch click on Upload button.</p>
+    </div>
+</div>
+
+<div class="alert alert-danger" id="error"  style="display: none;">
+    <strong>Error!</strong> Error occured while operation.
+</div>
+
+<div class="alert alert-success" id="success" style="display: none;">
+    <strong>Success!</strong> Action performed successfully.
+</div>
+
+<div class="row">
+    <div class="col-lg-12">
+        <table class="table table-bordered table-hover table-striped" id="dataset">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Account</th>
+                    <th>Description</th>
+                    <th>Currency</th>
+                    <th>Amount</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody data-bind="template: { name: viewTemplate, foreach: transactions }"></tbody>
+            <tfoot>
+                <tr>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td colspan="3" class="text-center">
+                        <a href="javascript:{}" data-bind="click: previous" class="back"><i class="glyphicon glyphicon-backward"></i></a>&nbsp;<span data-bind="text: pageIndex"></span>&nbsp;<a href="javascript:{}" data-bind="click: next" class="forward"><i class="glyphicon glyphicon-forward"></i></a>
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+@section scripts
+{
+    <script type="text/html" id="viewTemplate">
+        <tr>
+            <td>
+                <input type="text" disabled="disabled" class="edit" data-bind="value: Id, visible: $root.isItemEditing($data)" />
+                <label class="read" data-bind="text: Id, visible: !$root.isItemEditing($data)"></label>
+            </td>
+            <td>
+                <input type="text" class="edit" data-bind="value: Account, visible: $root.isItemEditing($data)" />
+                <label class="read" data-bind="text: Account, visible: !$root.isItemEditing($data)"></label>
+            </td>
+            <td>
+                <input type="text" class="edit" data-bind="value: Description, visible: $root.isItemEditing($data)" />
+                <label class="read" data-bind="text: Description, visible: !$root.isItemEditing($data)"></label>
+            </td>
+            <td>
+                <input type="text" size="3" class="edit" data-bind="value: CurrencyCode, visible: $root.isItemEditing($data)" />
+                <label class="read" data-bind="text: CurrencyCode, visible: !$root.isItemEditing($data)"></label>
+            </td>
+            <td>
+                <input type="number" class="edit" data-bind="value: Amount, visible: $root.isItemEditing($data)" />
+                <label class="read" data-bind="text: Amount, visible: !$root.isItemEditing($data)"></label>
+            </td>
+            <td>
+                <a href="javascript:{}" data-bind="click: $root.editTransaction.bind($root), visible: !$root.isItemEditing($data)" class="edit-btn" id="edit" title="Edit"><i class="glyphicon glyphicon-edit"></i></a>&nbsp;
+                <a href="javascript:{}" class="delete" id="delete" title="Delete" data-bind="click: $root.removeTransaction.bind($root), visible: !$root.isItemEditing($data)">
+                    <i class="glyphicon glyphicon-trash"></i>
+                </a>
+
+                <a href="javascript:{}" data-bind="click: $root.updateTransaction.bind($root), visible: $root.isItemEditing($data)" class="update" id="update" title="Update"><i class="glyphicon glyphicon-ok"></i></a>&nbsp;
+                <a href="javascript:{}" class="cancel" id="cancel" title="Cancel" data-bind="click: $root.cancelEditing.bind($root), visible: $root.isItemEditing($data)">
+                    <i class="glyphicon glyphicon-remove"></i>
+                </a>
+            </td>
+
+        </tr>
+    </script>
+    <script type="text/html" id="editTemplate">
+        <tr>
+            <td><input type="text" size="15" data-bind="value: $data.Id" id="txtId" disabled="disabled" /> </td>
+            <td><input type="text" data-bind="value: $data.Account" id="txtAccount" /> </td>
+            <td><input type="text" data-bind="value: $data.Description" id="txtDescription" /></td>
+            <td><input type="text" size="3" data-bind="value: $data.CurrencyCode" id="txtCurrencyCode" /></td>
+            <td><input type="text" data-bind="value: $data.Amount" id="txtAmount" /></td>
+            <td></td>
+
+        </tr>
+    </script>
+    <script type="text/javascript" src="~/Scripts/knockout-3.3.0.js">
+    
+    </script>
+    <script src="~/Scripts/knockout.mapping.js"></script>
+    <script type="text/javascript">
+
+        function Transaction(Id, Account, Description, CurrencyCode, Amount) {
+            return {
+                Id: ko.observable(Id),
+                Account: ko.observable(Account),
+                Description: ko.observable(Description),
+                CurrencyCode: ko.observable(CurrencyCode),
+                Amount: ko.observable(Amount)
+            };
+        }
+
+        var TransactionModel = function () {
+            var $this = this;
+            $this.transactions = ko.observableArray([]);
+            $this.pageSize = ko.observable(25);
+            $this.pageIndex = ko.observable(0);
+            $this.isNextPage = ko.observable(true);
+            $this.editingItem = ko.observable();
+            $this.viewTemplate = ko.observable('viewTemplate');
+
+            $this.editTransaction = new ko.subscribable();
+
+            $this.isItemEditing = function (transaction) {
+                return transaction === $this.editingItem();
+            };
+
+            function loadTransactions() {
+                $.ajax('/Transaction/GetTransactionsPaginated?startIndex=' + $this.pageIndex() + '&pageSize=' + $this.pageSize(), {}).
+                    done(function (data) {
+                        $this.transactions(data);
+                    }).error(function (e) {
+                        $('#error').slideDown(100).fadeOut(2000);
+                    });
+            }
+
+
+            loadTransactions();
+
+           
+
+
+
+
+            $this.editTransaction = function (transaction, event) {
+                console.log(transaction);
+                if ($this.editingItem() == null) {
+
+                    // shows the edit fields
+                    $this.editingItem(transaction);
+                }
+            }
+
+            $this.updateTransaction = function (transaction, event) {
+                var hasError = false;
+                if (transaction.Account === '') {
+                    //show error
+                    hasError = true;
+                }
+
+                if (transaction.Description === '') {
+                    //show error
+                    hasError = true;
+                }
+
+                if (transaction.CurrencyCode === '') {
+                    //show error
+                    hasError = true;
+                }
+
+                if (transaction.Amount === '') {
+                    //show error
+                    hasError = true;
+                }
+
+                if (hasError) {
+                    $('#error').slideDown(100).fadeOut(2000);
+                    return false;
+                }
+
+                $.ajax({
+                    url: '/Transaction/Update',
+                    type: 'PUT',
+                    dataType: 'json',
+                    cache: false,
+                    data: { Id: transaction.Id, Account: transaction.Account, Description: transaction.Description, CurrencyCode: transaction.CurrencyCode, Amount: transaction.Amount }
+
+                }).done(function (dt) {
+                    $this.editingItem(null);
+                    $this.transactions.remove(transaction);
+                    $this.transactions.push(dt);
+                    $('#success').slideDown(100).fadeOut(5000);
+                }).error(function (er) {
+                    $('#error').slideDown(100).fadeOut(2000);
+                });
+            }
+
+            $this.cancelEditing = function (transaction, event) {
+                $this.editingItem(null);
+            }
+
+            $this.removeTransaction = function (transaction) {
+                console.log(transaction);
+                $.ajax({
+                    url: '/Transaction/Delete',
+                    type: 'DELETE',
+                    dataType: 'json',
+                    cache: false,
+                    data: { id: transaction.Id }
+
+                }).done(function (dt) {
+                    $this.transactions.remove(transaction);
+                    $('#success').slideDown(100).fadeOut(2000);
+                }).error(function (er) {
+                    $('#error').slideDown(100).fadeOut(2000);
+                });
+            }
+
+            $this.next = function () {
+                if ($this.isNextPage() === true) {
+                    $this.pageIndex($this.pageIndex() + 1);
+                    $this.loadData();
+                }
+            }
+
+            $this.previous = function () {
+                if ($this.pageIndex() !== 0) {
+                    $this.pageIndex($this.pageIndex() - 1);
+                    $this.loadData();
+                }
+            }
+            $this.loadData = function () {
+                $.ajax('/Transaction/GetTransactionsPaginated?startIndex=' + $this.pageIndex() + '&pageSize=' + $this.pageSize(), {}).
+                    done(function (dt) {
+                        if (dt.length > 0) {
+                            $this.transactions(dt);
+                        } else {
+                            $this.isNextPage(false);
+                        }
+
+                    }).error(function (e) {
+                        $this.isNextPage(false);
+                        $('#error').slideDown(100).fadeOut(2000);
+                    });
+            }
+        };
+
+        $(function () {
+
+            ko.applyBindings(new TransactionModel());
+        });
+
+    </script>
+}

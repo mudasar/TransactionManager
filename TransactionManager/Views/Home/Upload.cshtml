@@ -1,0 +1,166 @@
+﻿@{
+    ViewBag.Title = "Upload Transactions";
+}
+<div class="row">
+    <div class="col-lg-12">
+        <h1>Upload Transactions</h1>
+        <p>Please select a file to upload and attach to database. Note: only csv and .xslx file types are supported.</p>
+    </div>
+</div>
+
+<div class="alert alert-danger" id="error" style="display: none;">
+    <strong>Error!</strong> <span id="errormsg"></span>
+</div>
+
+<div class="alert alert-success" id="success" style="display: none;">
+    <strong>Success!</strong> <span id="successmsg"></span>
+</div>
+
+<div class="row" id="upload">
+    <div class="col-lg-12">
+
+        @using (Ajax.BeginForm("Upload", "Home", new AjaxOptions() { HttpMethod = "POST" }, new { enctype = "multipart/form-data" }))
+        {
+            @Html.AntiForgeryToken()
+            <input id="tfile" type="file" accept='.csv,.xlsx' name="file" class="btn btn-default" />
+
+            <input type="submit" name="upload" value="Upload Transactions" class="btn btn-default" />
+        }
+
+
+    </div>
+</div>
+
+<div class="row" style="display: none" id="pnlSync">
+    <div class="col-lg-12">
+        <div class="panel panel-default">
+            <div class="page-header">
+                <h1> Sync File</h1>
+            </div>
+            <div class="panel-body">
+                File <span id="filename"></span> is uploaded. Sync with database now.
+                <br />
+                <a href="javascript:{}" class="btn btn-default btn-success" id="btnSync">
+                    Sync
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row" style="display: none" id="pnlResult">
+    <div class="col-lg-12">
+        <div class="panel panel-default">
+            <div class="page-header">
+                <h1>File Sync Completed</h1>
+            </div>
+            <div class="panel-body">
+                <p id="txtResult"></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="row">
+    <div class="col-lg-12">
+        <div class="progress">
+            <div class="progress-bar">0%</div>
+        </div>
+        <div id="status"></div>
+    </div>
+</div>
+
+<style type="text/css">
+    .progress {
+        position: relative;
+        width: 400px;
+        border: 1px solid #ddd;
+        padding: 1px;
+    }
+
+    .progress-bar {
+        width: 0px;
+        height: 20px;
+        background-color: #00ced1;
+    }
+</style>
+
+@section scripts
+{
+
+    <script src="~/Scripts/jquery.form.min.js"></script>
+    <script type="text/javascript">
+        $(function () {
+
+            var filename = '';
+            var bar = $('.progress');
+            var percent = $('.progress-bar');
+            var status = $('#status');
+
+
+            $('form').ajaxForm({
+                beforeSend: function () {
+
+                    status.empty();
+                    var percentValue = '0%';
+                    bar.width(percentValue);
+                    percent.html(percentValue);
+                },
+                uploadProgress: function (event, position, total, percentComplete) {
+                    var percentValue = percentComplete + '%';
+                    bar.width(percentValue);
+                    percent.html(percentValue);
+                },
+                success: function (data) {
+                    var percentValue = '100%';
+                    bar.width(percentValue);
+                    percent.html(percentValue);
+                    $('#tfile').val('');
+
+                },
+                complete: function (xhr) {
+                    var obj = $.parseJSON(xhr.responseText);
+                    filename = obj.file;
+                    $('#filename').html(obj.file);
+                    $('#upload').hide();
+                    $('#pnlSync').show();
+
+                }
+            });
+
+            $('#btnSync').on('click', function (e) {
+
+                $.ajax({
+                    url: '/Home/SyncFile',
+                    type: 'POST',
+                    data: { fileName: $('#filename').html() },
+                    dataType: 'json',
+                    cache: false,
+                    success: function (data) {
+                        if (data.isSuccess) {
+                            $('#pnlSync').hide();
+                            $('#pnlResult').show();
+
+                            $('#txtResult').html('Total records processed: ' + data.result.RecordsProcessed + '. Records with errors: ' + data.result.InvalidRecords + ' Valid records: ' + data.result.ValidRecords);
+                            $('#successmsg').html(data.message);
+                            $('#success').show();
+                        } else {
+                            $('#errormsg').html(data.message);
+                            $('#error').show();
+                        }
+
+                    },
+                    error: function (es) {
+                        $('#pnlSync').hide();
+                        $('#pnlResult').show();
+                        $('#txtResult').html(es);
+                    },
+                    complete: function (er) {
+
+                    }
+                });
+            });
+        });
+    </script>
+}
